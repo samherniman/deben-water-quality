@@ -1,0 +1,168 @@
+---
+title: "Four Rivers Water Quality Dashboard"
+format: html
+server: shiny
+theme: theme.scss
+---
+
+
+
+::: textbox
+
+This is a little test demonstration of how to combine Quarto and Shiny to create interactive text documents.
+You know, for those cases where you need interactive elements to play around with but your UI is mostly text.
+
+:::
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque venenatis lectus vel tincidunt sagittis.
+Phasellus vulputate libero vitae bibendum tincidunt.
+Curabitur pharetra, tortor quis bibendum facilisis, arcu metus consequat nisi, et ultrices risus nibh at ligula.
+Nulla tempor, justo sit amet sollicitudin sodales, est arcu dapibus nulla, eu suscipit augue mi finibus nibh.
+Quisque eget imperdiet neque. 
+Curabitur justo mauris, elementum et tortor vitae, sollicitudin condimentum nisl. 
+Vestibulum volutpat sapien ultricies ante rutrum, id tincidunt mi viverra. 
+Quisque sodales ullamcorper quam.
+
+---
+
+
+
+### Extra information {style="margin-bottom: 30px;"}
+
+
+::: column-page
+
+```{r}
+tib_tags <- tibble::tibble(
+  headings = c(
+    'Cool stuff 🚀',
+    'More cool stuff 💰',
+    'Another cool thing ⚙️',
+    'Extra super cool thing 💡',
+    'A fifth cool thing, yay 🧲'
+  ),
+  text = 'Duis imperdiet, est vitae mollis porttitor, neque metus ornare urna, a ullamcorper dolor sem at tellus.' 
+) |> 
+  dplyr::mutate(
+    headings = purrr::map(
+      headings, 
+      \(x) htmltools::div(htmltools::strong(x))
+    ),
+    text = purrr::map(
+      text, 
+      htmltools::div
+    ),
+    combined = purrr::map2(
+      headings,
+      text,
+      \(x, y) htmltools::div(
+        style = htmltools::css(
+          width = '300px',
+          margin_right = '20px',
+          margin_bottom = '20px'
+        ),
+        x, 
+        y
+      )
+    )
+  )
+
+htmltools::div(
+  style = htmltools::css(
+    display = 'flex',
+    flex_wrap = 'wrap'
+  ),
+  tib_tags$combined
+)
+```
+
+:::
+
+
+---
+
+### Interactive part
+
+```{r}
+#| context: setup
+#| message: false
+#| warning: false
+#| include: false
+library(bslib)
+library(ggplot2)
+source("code.R")
+```
+
+
+```{r}
+#| column: page
+layout_sidebar(
+  height = 600,
+  sidebar =  sidebar(
+    shiny::selectizeInput(
+      'select_area', 
+      'Visible Areas', 
+      choices = unique(df_sf$Area_name),
+      selected = c("River Fynn and River Lark", "Tidal River Deben", "Non-Tidal River Deben"),
+      multiple = TRUE
+    )#,
+    # shiny::sliderInput(
+    #   'slider_weight',
+    #   'Minimum Weight (g)',
+    #   min = 1000,
+    #   max = 5000,
+    #   value = 3000
+    # )
+  ),
+  shiny::plotOutput('output_plot')
+)
+```
+
+```{r}
+#| context: server
+
+output$output_plot <- shiny::renderPlot({
+
+df_sf |>
+  dplyr::filter(
+      Area_name %in% input$select_area
+      # body_mass_g >= input$slider_weight
+    ) |>
+#   # dplyr::filter(
+#   #   # Location_Description == "Woodbridge Tide Mill"
+#   #   Area_name == "River Fynn and River Lark"
+#   # ) |>
+  ggplot(
+    aes(x = date_actual, y = E_coli_count_Colonies_per_1ml)
+  ) +
+  geom_smooth(aes(color = Area_name),
+    se = FALSE, alpha = 0.6, linewidth = 2) +
+  labs(y = "E.coli Colonies per 1ml", x = "Date") +
+  theme(
+    panel.background = element_rect(fill = "grey98"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "none"
+  ) +
+  # geom_point(
+  geom_jitter(
+    # aes(color = E_coli_count_Colonies_per_1ml),
+    aes(color = Area_name),
+    size = 4,
+    width = 10
+  ) +
+  scale_y_log10() +
+  scico::scale_color_scico_d()
+})
+```
+
+
+
+---
+
+### Contact info
+
+
+You can reach me via [mail@example.com](mailto:mail@example.com).
+
+
