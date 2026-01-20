@@ -1,0 +1,61 @@
+/*-- scss:defaults --*/
+
+// Modern color palette - cream background with subtle accents
+$body-bg: #FAF7F2;
+$body-color: #2C2C2C;
+$link-color: #3B7EA1;
+$link-hover-color: #2A5F7A;
+
+// Modern font stack
+$font-family-sans-serif: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+$headings-font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+$headings-font-weight: 600;
+
+// Spacing
+$spacer: 1rem;
+
+/*-- scss:rules --*/
+
+// Consistent spacing for horizontal rules
+hr {
+  margin: 3rem 0;
+  border: 0;
+  border-top: 1px solid #D4C5B9;
+}
+
+// Fix the textbox styling
+.textbox {
+  background-color: #F0EBE3;
+  border-left: 4px solid #3B7EA1;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  border-radius: 4px;
+}
+
+// Column-page specific styling
+.column-page {
+
+  // Ensure all content within column-page uses full width
+  .textbox,
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  hr {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  // Override any restrictive margins within column-page
+  .bslib-sidebar-layout {
+    width: 100% !important;
+  }
+}
+
+// Ensure the title block doesn't interfere
+.quarto-title-block {
+  margin-bottom: 2rem;
+}

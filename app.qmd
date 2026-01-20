@@ -1,0 +1,221 @@
+---
+title: "Four Rivers Water Quality Dashboard"
+format: 
+  html:
+    css: theme.scss
+server: shiny
+---
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+
+::: textbox
+
+This interactive dashboard demonstrates water quality monitoring across four river systems. Use the tools below to explore E. coli levels over time and identify areas of concern.
+
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque venenatis lectus vel tincidunt sagittis.
+Phasellus vulputate libero vitae bibendum tincidunt.
+Curabitur pharetra, tortor quis bibendum facilisis, arcu metus consequat nisi, et ultrices risus nibh at ligula.
+Nulla tempor, justo sit amet sollicitudin sodales, est arcu dapibus nulla, eu suscipit augue mi finibus nibh.
+Quisque eget imperdiet neque. 
+Curabitur justo mauris, elementum et tortor vitae, sollicitudin condimentum nisl. 
+Vestibulum volutpat sapien ultricies ante rutrum, id tincidunt mi viverra. 
+Quisque sodales ullamcorper quam.
+
+:::
+
+---
+
+### Interactive Plot
+
+```{r}
+#| context: setup
+#| message: false
+#| warning: false
+#| include: false
+library(bslib)
+library(ggplot2)
+source("code.R")
+
+df_sf$longitude <- sf::st_coordinates(df_sf)[, 1]
+df_sf$latitude <- sf::st_coordinates(df_sf)[, 2]
+
+df_sf <- df_sf |> 
+  tidyr::pivot_longer(
+    cols = E_coli_count_Colonies_per_1ml:Ammonia_ppm,
+    names_to = "variable",
+    values_to = "values"
+    )  
+```
+
+
+```{r}
+layout_sidebar(
+  height = 600,
+  sidebar = sidebar(
+    shiny::selectizeInput(
+      'select_area',
+      'Visible Areas',
+      choices = unique(df_sf$Area_name),
+      selected = c(
+        "River Fynn and River Lark",
+        "Tidal River Deben",
+        "Non-Tidal River Deben"
+      ),
+      multiple = TRUE
+    )
+  ),
+  shiny::plotOutput('output_plot')
+)
+```
+
+```{r}
+#| context: server
+
+output$output_plot <- shiny::renderPlot({
+  df_sf |>
+    dplyr::filter(
+      Area_name %in% input$select_area,
+      variable == "E_coli_count_Colonies_per_1ml"
+    ) |>
+    ggplot(
+      aes(x = date_actual, y = values)
+    ) +
+    geom_smooth(
+      aes(color = Area_name),
+      se = FALSE,
+      alpha = 0.6,
+      linewidth = 2
+    ) +
+    labs(y = "E.coli Colonies per 1ml", x = "Date") +
+    theme(
+      panel.background = element_rect(fill = "grey98"),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      legend.position = "none"
+    ) +
+    geom_jitter(
+      # aes(color = E_coli_count_Colonies_per_1ml),
+      aes(color = Area_name),
+      size = 4,
+      width = 10
+    ) +
+    scale_y_log10() +
+    scico::scale_color_scico_d()
+})
+```
+
+---
+
+### Interactive Map
+
+```{r}
+
+library(leaflet)
+
+max_month = max(lubridate::month(df_sf$date_actual), na.rm = TRUE)
+min_month = min(lubridate::month(df_sf$date_actual), na.rm = TRUE)
+layout_sidebar(
+  height = 600,
+  sidebar = sidebar(
+    shiny::sliderInput(
+      'month_range_map',
+      'Month Range',
+      min = min_month,
+      max = max_month,
+      value = c(max_month, max_month),
+      step = 1,
+      dragRange = TRUE
+    ),
+    shiny::selectizeInput(
+      'select_variable',
+      'Water quality variables',
+      choices = c(
+        "E. coli" = "E_coli_count_Colonies_per_1ml",
+        "Phosphate PO4" = "Phosphate_PO4_mgpL",            
+        "Phosphate P" = "Phosphate_P_mgpL",
+        "Nitrate" = "Nitrate_ppm",               
+        "Ammonia" = "Ammonia_ppm"
+      ),
+      selected = c("E_coli_count_Colonies_per_1ml"),
+      multiple = FALSE
+    )
+  ),
+  leafletOutput("map", width = "100%", height = "100%")
+)
+```
+
+```{r}
+#| context: server
+# Create the map
+library(leaflet)
+
+# Load river data
+rivers_sf <- sf::st_read("data/four_rivers.gpkg") |> sf::st_transform(4326)
+
+# Filter data based on month range
+observe({
+  title_str <- dplyr::case_match(
+    input$select_variable,
+    "E_coli_count_Colonies_per_1ml" ~ "E. coli<br/>(Colonies/ml)",
+    "Phosphate_PO4_mgpL" ~ "Phosphate PO<sub>4</sub><br/>(mg/L)",            
+    "Phosphate_P_mgpL" ~ "Phosphate P <br/>(mg/L)",
+    "Nitrate_ppm" ~ "Nitrate (ppm)",               
+    "Ammonia_ppm" ~ "Ammonia (ppm)"
+  )
+
+  filtered_data <- df_sf |>
+    tidyr::drop_na(values) |> 
+    dplyr::filter(
+      variable == input$select_variable,
+      lubridate::month(date_actual) >= input$month_range_map[1],
+      lubridate::month(date_actual) <= input$month_range_map[2]
+    ) |> 
+    dplyr::mutate(values_scaled = scales::rescale(values, to = c(200, 800)))
+
+  # Create color palette for E. coli values
+  pal <- colorNumeric(
+    palette = "viridis",
+    domain = filtered_data$values
+  )
+
+  leafletProxy("map", data = filtered_data) |>
+    clearShapes() |>
+    clearControls() |> # Clear existing legends
+    # Add rivers first (below points)
+    addPolylines(
+      data = rivers_sf,
+      color = "#0066CC",
+      weight = 3,
+      opacity = 0.8
+    ) |>
+    # Add circles on top
+    addCircles(
+      ~longitude,
+      ~latitude,
+      radius = ~values_scaled, # Scaled radius
+      stroke = FALSE,
+      fillOpacity = 0.7,
+      fillColor = ~ pal(values)
+    ) |>
+    addLegend(
+      pal = pal,
+      values = ~values,
+      title = title_str,
+      position = "bottomright",
+      opacity = 0.7
+    )
+})
+
+output$map <- renderLeaflet({
+  leaflet() %>%
+    addTiles() %>%
+    setView(lng = 1.337325608, lat = 52.08806268, zoom = 11)
+})
+```
+
+
+### Contact
+
+For questions please contact Pandion Labs at [hello@pandionlabs.dev](mailto:hello@pandionlabs.dev)

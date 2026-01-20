@@ -50,6 +50,9 @@ join_and_clean <- function(df, w3w_df) {
   dplyr::mutate(what3words_location = stringr::str_replace_all(what3words_location, "\\.+", ".")) |> 
   dplyr::mutate(Location_Description = stringr::str_remove_all(Location_Description, "SP")) |> 
   dplyr::mutate(
+# Need to confirm that the "top 0 next 5" thing is poperly encoded as just 5
+    Nitrate_ppm = stringr::str_extract(Nitrate_ppm, "[:digit:]+$") |> as.numeric(),
+    E_coli_count_Colonies_per_1ml = stringr::str_extract(E_coli_count_Colonies_per_1ml, "[:digit:]+$") |> as.numeric(),
     Location_Description = stringr::str_replace_all(Location_Description, "STW", "sewage treatment works"),
     Location_Description = stringr::str_replace_all(Location_Description, "Debenham11", "Debenham 11"),
     Location_Description = dplyr::case_when(
